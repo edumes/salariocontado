@@ -1,16 +1,16 @@
 "use client"
 
-import { ThemeToggle } from "@/components/ui/theme-toggle"
-import { Calendar, Clock, DollarSign, Settings, TrendingUp } from 'lucide-react'
-import { useCallback, useEffect, useState } from "react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Progress, ProgressTrack } from "@/components/animate-ui/base/progress"
+import { AnimatedDigits } from "@/components/magicui/animated-digits"
+import { LiquidGlassBadge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { LiquidGlassCard, CardHeader, CardContent } from "@/components/kokonutui/liquid-glass-card"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { CardContent, CardHeader, LiquidGlassCard } from "@/components/ui/liquid-glass-card"
+import NumberInput from "@/components/ui/NumberInput"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AlertTriangle, Calendar, Clock, DollarSign, Settings, TrendingUp } from 'lucide-react'
+import { useCallback, useEffect, useState } from "react"
 
 interface WorkConfig {
   salaryType: 'monthly' | 'annual' | 'hourly'
@@ -203,23 +203,33 @@ export default function Page() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             {/* Current Earnings Card */}
             <LiquidGlassCard className="lg:col-span-2" variant="primary" hover="glow">
-              <CardHeader 
-                title="Ganhos Atual" 
+              <CardHeader
+                title="Ganhos Atual"
                 className="text-center"
               />
               <CardContent className="text-center">
-                <div className="text-6xl font-bold text-emerald-600 dark:text-emerald-400 mb-6 font-mono transition-all duration-300">
-                  {formatCurrency(earnings.dailyEarnings)}
-                </div>
+                <AnimatedDigits
+                  value={formatCurrency(earnings.dailyEarnings)}
+                  className="text-6xl font-bold text-emerald-600 dark:text-emerald-400 mb-6 font-mono"
+                  duration={0.3}
+                />
 
                 <div className="flex items-center justify-center gap-4 mb-6">
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                     <Clock className="w-4 h-4 mr-2" />
-                    {formatCurrency(earnings.earningsPerSecond)}/segundo
+                    <AnimatedDigits
+                      value={formatCurrency(earnings.earningsPerSecond)}
+                      duration={0.2}
+                    />
+                    /segundo
                   </div>
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                     <TrendingUp className="w-4 h-4 mr-2" />
-                    {formatCurrency(earnings.earningsPerSecond * 60)}/minuto
+                    <AnimatedDigits
+                      value={formatCurrency(earnings.earningsPerSecond * 60)}
+                      duration={0.2}
+                    />
+                    /minuto
                   </div>
                 </div>
               </CardContent>
@@ -227,13 +237,13 @@ export default function Page() {
 
             {/* Settings Card */}
             <LiquidGlassCard variant="secondary" hover="glow">
-              <CardHeader 
-                title="Configurações" 
+              <CardHeader
+                title="Configurações"
                 icon={
                   <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => setIsDialogOpen(true)}
                       >
@@ -250,7 +260,7 @@ export default function Page() {
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                          <Label htmlFor="salary-type">Tipo de Salário</Label>
+                          <Label>Tipo de Salário</Label>
                           <Select
                             value={config.salaryType}
                             onValueChange={(value: string) => {
@@ -271,87 +281,67 @@ export default function Page() {
                         </div>
 
                         <div className="grid gap-2">
-                          <Label htmlFor="salary-amount">Valor do Salário (R$)</Label>
-                          <Input
-                            id="salary-amount"
-                            type="number"
-                            min="0"
-                            step="0.01"
+                          <NumberInput
+                            label="Valor do Salário (R$)"
                             value={config.salaryAmount}
-                            onChange={(e) => {
-                              const value = Number(e.target.value)
-                              if (!isNaN(value) && value >= 0) {
-                                setConfig(prev => ({ ...prev, salaryAmount: value }))
-                              }
+                            onChange={(value) => setConfig(prev => ({ ...prev, salaryAmount: value }))}
+                            min={0}
+                            step={0.01}
+                            placeholder="Digite o valor do salário..."
+                            formatOptions={{
+                              style: 'currency',
+                              currency: 'BRL',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
                             }}
                           />
                         </div>
 
                         <div className="grid gap-2">
-                          <Label htmlFor="hours-per-day">Horas por Dia</Label>
-                          <Input
-                            id="hours-per-day"
-                            type="number"
-                            min="1"
-                            max="24"
+                          <NumberInput
+                            label="Horas por Dia"
                             value={config.hoursPerDay}
-                            onChange={(e) => {
-                              const value = Number(e.target.value)
-                              if (!isNaN(value) && value >= 1 && value <= 24) {
-                                setConfig(prev => ({ ...prev, hoursPerDay: value }))
-                              }
-                            }}
+                            onChange={(value) => setConfig(prev => ({ ...prev, hoursPerDay: value }))}
+                            min={1}
+                            max={24}
+                            step={1}
+                            placeholder="Digite as horas por dia..."
                           />
                         </div>
 
                         <div className="grid gap-2">
-                          <Label htmlFor="days-per-week">Dias por Semana</Label>
-                          <Input
-                            id="days-per-week"
-                            type="number"
-                            min="1"
-                            max="7"
+                          <NumberInput
+                            label="Dias por Semana"
                             value={config.daysPerWeek}
-                            onChange={(e) => {
-                              const value = Number(e.target.value)
-                              if (!isNaN(value) && value >= 1 && value <= 7) {
-                                setConfig(prev => ({ ...prev, daysPerWeek: value }))
-                              }
-                            }}
+                            onChange={(value) => setConfig(prev => ({ ...prev, daysPerWeek: value }))}
+                            min={1}
+                            max={7}
+                            step={1}
+                            placeholder="Digite os dias por semana..."
                           />
                         </div>
 
                         <div className="grid gap-2">
-                          <Label htmlFor="work-start-hour">Horário de Início</Label>
-                          <Input
-                            id="work-start-hour"
-                            type="number"
-                            min="0"
-                            max="23"
+                          <NumberInput
+                            label="Horário de Início"
                             value={config.workStartHour}
-                            onChange={(e) => {
-                              const value = Number(e.target.value)
-                              if (!isNaN(value) && value >= 0 && value <= 23) {
-                                setConfig(prev => ({ ...prev, workStartHour: value }))
-                              }
-                            }}
+                            onChange={(value) => setConfig(prev => ({ ...prev, workStartHour: value }))}
+                            min={0}
+                            max={23}
+                            step={1}
+                            placeholder="Digite o horário de início..."
                           />
                         </div>
 
                         <div className="grid gap-2">
-                          <Label htmlFor="work-end-hour">Horário de Término</Label>
-                          <Input
-                            id="work-end-hour"
-                            type="number"
-                            min="0"
-                            max="23"
+                          <NumberInput
+                            label="Horário de Término"
                             value={config.workEndHour}
-                            onChange={(e) => {
-                              const value = Number(e.target.value)
-                              if (!isNaN(value) && value >= 0 && value <= 23) {
-                                setConfig(prev => ({ ...prev, workEndHour: value }))
-                              }
-                            }}
+                            onChange={(value) => setConfig(prev => ({ ...prev, workEndHour: value }))}
+                            min={0}
+                            max={23}
+                            step={1}
+                            placeholder="Digite o horário de término..."
                           />
                         </div>
                       </div>
@@ -367,9 +357,9 @@ export default function Page() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Status:</span>
-                    <Badge variant={isWorkingHours() ? "default" : "secondary"}>
+                    <LiquidGlassBadge variant={isWorkingHours() ? "default" : "secondary"}>
                       {isWorkingHours() ? 'Horário de Trabalho' : 'Fora do Expediente'}
-                    </Badge>
+                    </LiquidGlassBadge>
                   </div>
                 </div>
               </CardContent>
@@ -380,8 +370,8 @@ export default function Page() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Daily Progress */}
             <LiquidGlassCard variant="default" hover="glow">
-              <CardHeader 
-                title="Meta Diária" 
+              <CardHeader
+                title="Meta Diária"
                 icon={<Calendar className="w-5 h-5 text-blue-500" />}
               />
               <CardContent>
@@ -390,7 +380,9 @@ export default function Page() {
                     <span>Progresso</span>
                     <span>{Math.round(getProgressPercentage(earnings.dailyEarnings, earnings.dailyTarget))}%</span>
                   </div>
-                  <Progress value={getProgressPercentage(earnings.dailyEarnings, earnings.dailyTarget)} className="mb-2" />
+                  <Progress value={getProgressPercentage(earnings.dailyEarnings, earnings.dailyTarget)}>
+                    <ProgressTrack color="bg-blue-500" />
+                  </Progress>
                 </div>
                 <div className="text-lg font-bold text-gray-800 dark:text-white">{formatCurrency(earnings.dailyTarget)}</div>
               </CardContent>
@@ -398,8 +390,8 @@ export default function Page() {
 
             {/* Weekly Progress */}
             <LiquidGlassCard variant="default" hover="glow">
-              <CardHeader 
-                title="Meta Semanal" 
+              <CardHeader
+                title="Meta Semanal"
                 icon={<TrendingUp className="w-5 h-5 text-emerald-500" />}
               />
               <CardContent>
@@ -408,7 +400,9 @@ export default function Page() {
                     <span>Progresso</span>
                     <span>{Math.round(getProgressPercentage(earnings.dailyEarnings, earnings.weeklyTarget))}%</span>
                   </div>
-                  <Progress value={getProgressPercentage(earnings.dailyEarnings, earnings.weeklyTarget)} className="mb-2" />
+                  <Progress value={getProgressPercentage(earnings.dailyEarnings, earnings.weeklyTarget)}>
+                    <ProgressTrack color="bg-emerald-500" />
+                  </Progress>
                 </div>
                 <div className="text-lg font-bold text-gray-800 dark:text-white">{formatCurrency(earnings.weeklyTarget)}</div>
               </CardContent>
@@ -416,8 +410,8 @@ export default function Page() {
 
             {/* Monthly Progress */}
             <LiquidGlassCard variant="default" hover="glow">
-              <CardHeader 
-                title="Meta Mensal" 
+              <CardHeader
+                title="Meta Mensal"
                 icon={<DollarSign className="w-5 h-5 text-indigo-500" />}
               />
               <CardContent>
@@ -426,7 +420,9 @@ export default function Page() {
                     <span>Progresso</span>
                     <span>{Math.round(getProgressPercentage(earnings.dailyEarnings, earnings.monthlyTarget))}%</span>
                   </div>
-                  <Progress value={getProgressPercentage(earnings.dailyEarnings, earnings.monthlyTarget)} className="mb-2" />
+                  <Progress value={getProgressPercentage(earnings.dailyEarnings, earnings.monthlyTarget)}>
+                    <ProgressTrack color="bg-indigo-500" />
+                  </Progress>
                 </div>
                 <div className="text-lg font-bold text-gray-800 dark:text-white">{formatCurrency(earnings.monthlyTarget)}</div>
               </CardContent>
@@ -436,7 +432,10 @@ export default function Page() {
           {/* Stats Footer */}
           <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
             {!isWorkingHours() && (
-              <p className="text-orange-600 dark:text-orange-400 font-medium">⚠️ Atualmente fora do horário de trabalho configurado</p>
+              <p className="text-orange-600 dark:text-orange-400 font-medium flex items-center justify-center gap-2">
+                <AlertTriangle />
+                Atualmente fora do horário de trabalho configurado
+              </p>
             )}
           </div>
         </div>

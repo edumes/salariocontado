@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import React, { useEffect, useState } from 'react';
-import { MagicCard } from '../magicui/magic-card';
+import { MagicCard } from './magic-card';
 import { Button } from './button';
 import { CardContent, CardDescription, CardTitle } from './card';
 

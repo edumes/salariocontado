@@ -2,7 +2,7 @@ import { CardContent, CardDescription, CardHeader, CardTitle } from '@/component
 import Image from 'next/image';
 import React from 'react';
 import { DrawLineText } from '../gsap/draw-line-text';
-import { MagicCard } from '../magicui/magic-card';
+import { MagicCard } from './magic-card';
 import { AnimatedTooltip } from './animated-tooltip';
 import { Button } from './button';
 import SpotifyNowPlayingCard from './spotify-now-playing-card';
