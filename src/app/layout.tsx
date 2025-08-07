@@ -15,8 +15,8 @@ const InterTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
-  title: "SalarioContado",
-  description: "salario contado",
+  title: "Salario Contado",
+  description: "Veja quanto você está ganhando em tempo real",
 };
 
 export default function RootLayout({

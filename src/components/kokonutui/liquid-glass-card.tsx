@@ -15,6 +15,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { ArrowRight, ArrowLeft, Play, Pause } from "lucide-react";
+import Image from "next/image";
 
 const liquidbuttonVariants = cva(
     "inline-flex items-center transition-colors justify-center cursor-pointer gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
@@ -427,7 +428,7 @@ export function NotificationCenter() {
                 <div className="flex items-start gap-4">
                     {/* Profile Image */}
                     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl">
-                        <img
+                        <Image
                             src="https://ferf1mheo22r9ira.public.blob.vercel-storage.com/portrait2-x5MjJSaQ9ed0HZrewEhH7TkZwjZ66K.jpeg"
                             alt="Profile"
                             className="h-full w-full object-cover"
