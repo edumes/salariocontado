@@ -194,7 +194,7 @@ export default function Page() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500 rounded-full mb-4">
             <DollarSign className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">Contador de Ganhos</h1>
+          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">Salário Contado</h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">Veja quanto você está ganhando em tempo real</p>
         </header>
 

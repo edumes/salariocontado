@@ -15,7 +15,7 @@ const InterTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
-  title: "Salario Contado",
+  title: "Salário Contado",
   description: "Veja quanto você está ganhando em tempo real",
 };
 
