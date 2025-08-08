@@ -15,7 +15,6 @@ import { useCallback, useEffect, useState } from "react"
 interface WorkConfig {
   salaryType: 'monthly' | 'annual' | 'hourly'
   salaryAmount: number
-  hoursPerDay: number
   daysPerWeek: number
   workStartHour: number
   workEndHour: number
@@ -27,6 +26,8 @@ interface EarningsData {
   weeklyTarget: number
   monthlyTarget: number
   earningsPerSecond: number
+  weeklyEarnings: number
+  monthlyEarnings: number
 }
 
 const STORAGE_KEY = 'earnings-tracker-config'
@@ -45,7 +46,6 @@ const getStoredConfig = (): WorkConfig => {
   return {
     salaryType: 'monthly',
     salaryAmount: 3150,
-    hoursPerDay: 8,
     daysPerWeek: 5,
     workStartHour: 8,
     workEndHour: 17
@@ -67,7 +67,9 @@ export default function Page() {
     dailyTarget: 0,
     weeklyTarget: 0,
     monthlyTarget: 0,
-    earningsPerSecond: 0
+    earningsPerSecond: 0,
+    weeklyEarnings: 0,
+    monthlyEarnings: 0
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
@@ -88,24 +90,52 @@ export default function Page() {
         break
       case 'hourly':
         const workingDaysPerYear = 365 * (workConfig.daysPerWeek / 7)
-        annualSalary = workConfig.salaryAmount * workConfig.hoursPerDay * workingDaysPerYear
+        const actualWorkingHoursPerDay = workConfig.workEndHour - workConfig.workStartHour
+        annualSalary = workConfig.salaryAmount * actualWorkingHoursPerDay * workingDaysPerYear
         break
       default:
         annualSalary = 0
     }
 
     const workingDaysPerYear = 365 * (workConfig.daysPerWeek / 7)
-    const totalWorkingSecondsPerYear = workingDaysPerYear * workConfig.hoursPerDay * 3600
+    const actualWorkingHoursPerDay = workConfig.workEndHour - workConfig.workStartHour
+    const totalWorkingSecondsPerYear = workingDaysPerYear * actualWorkingHoursPerDay * 3600
 
     return annualSalary / totalWorkingSecondsPerYear
   }, [])
 
   const calculateTargets = useCallback((workConfig: WorkConfig) => {
     const earningsPerSecond = calculateEarningsPerSecond(workConfig)
-    const secondsPerDay = workConfig.hoursPerDay * 3600
-    const dailyTarget = earningsPerSecond * secondsPerDay
+    
+    // Calculate actual working hours per day based on start and end times
+    const actualWorkingHoursPerDay = workConfig.workEndHour - workConfig.workStartHour
+    const secondsPerDay = actualWorkingHoursPerDay * 3600
+    
+    // Calculate daily target based on annual salary divided by working days per year
+    const workingDaysPerYear = 365 * (workConfig.daysPerWeek / 7)
+    let annualSalary: number
+    
+    switch (workConfig.salaryType) {
+      case 'monthly':
+        annualSalary = workConfig.salaryAmount * 12
+        break
+      case 'annual':
+        annualSalary = workConfig.salaryAmount
+        break
+      case 'hourly':
+        annualSalary = workConfig.salaryAmount * actualWorkingHoursPerDay * workingDaysPerYear
+        break
+      default:
+        annualSalary = 0
+    }
+    
+    const dailyTarget = annualSalary / workingDaysPerYear
     const weeklyTarget = dailyTarget * workConfig.daysPerWeek
-    const monthlyTarget = dailyTarget * (workConfig.daysPerWeek / 7) * 30.44 // Average days per month
+    
+    // Calculate monthly target based on average working days per month
+    // Average month has ~21.67 working days (assuming 5-day work week)
+    const averageWorkingDaysPerMonth = (workConfig.daysPerWeek / 7) * 30.44
+    const monthlyTarget = dailyTarget * averageWorkingDaysPerMonth
 
     return {
       earningsPerSecond,
@@ -118,9 +148,9 @@ export default function Page() {
   const isWorkingHours = useCallback(() => {
     const now = new Date()
     const currentHour = now.getHours()
-    const currentDay = now.getDay()
+    const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
-    // Check if it's a working day (assuming Monday = 1, Sunday = 0)
+    // Check if it's a working day (Monday = 1, Tuesday = 2, ..., Friday = 5 for 5-day week)
     const isWorkingDay = currentDay >= 1 && currentDay <= config.daysPerWeek
     const isWorkingHour = currentHour >= config.workStartHour && currentHour < config.workEndHour
 
@@ -132,9 +162,18 @@ export default function Page() {
     const currentHour = now.getHours()
     const currentMinute = now.getMinutes()
     const currentSecond = now.getSeconds()
+    const currentDay = now.getDay()
+
+    // Check if today is a working day
+    const isWorkingDay = currentDay >= 1 && currentDay <= config.daysPerWeek
+
+    if (!isWorkingDay) {
+      return 0 // No earnings on non-working days
+    }
 
     // Calculate how many seconds have passed since work started today
     let secondsWorkedToday = 0
+    const actualWorkingHoursPerDay = config.workEndHour - config.workStartHour
 
     if (isWorkingHours()) {
       // Currently working - calculate from work start time to now
@@ -143,12 +182,63 @@ export default function Page() {
       secondsWorkedToday = Math.max(0, currentTimeInSeconds - workStartInSeconds)
     } else if (currentHour >= config.workEndHour) {
       // Work day is over - calculate full work day
-      secondsWorkedToday = config.hoursPerDay * 3600
+      secondsWorkedToday = actualWorkingHoursPerDay * 3600
+    } else if (currentHour >= config.workStartHour) {
+      // Work day has started but we're in working hours - calculate from start to now
+      const workStartInSeconds = config.workStartHour * 3600
+      const currentTimeInSeconds = currentHour * 3600 + currentMinute * 60 + currentSecond
+      secondsWorkedToday = Math.max(0, currentTimeInSeconds - workStartInSeconds)
     }
     // If before work hours, secondsWorkedToday remains 0
 
     return secondsWorkedToday * earnings.earningsPerSecond
-  }, [config.workStartHour, config.workEndHour, config.hoursPerDay, earnings.earningsPerSecond, isWorkingHours])
+  }, [config.workStartHour, config.workEndHour, config.daysPerWeek, earnings.earningsPerSecond, isWorkingHours])
+
+  const calculateWeeklyEarnings = useCallback(() => {
+    const now = new Date()
+    const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    
+    // Calculate how many working days have passed this week (excluding today)
+    let completedWorkingDays = 0
+    for (let day = 1; day < Math.min(currentDay, config.daysPerWeek + 1); day++) {
+      completedWorkingDays++
+    }
+    
+    // Calculate earnings from completed working days this week
+    const completedDaysEarnings = completedWorkingDays * earnings.dailyTarget
+    
+    // Add today's earnings if it's a working day
+    const todayEarnings = calculateDailyEarnings()
+    
+    return completedDaysEarnings + todayEarnings
+  }, [config.daysPerWeek, earnings.dailyTarget, calculateDailyEarnings])
+
+  const calculateMonthlyEarnings = useCallback(() => {
+    const now = new Date()
+    const currentDay = now.getDate()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+    
+    // Calculate how many working days have passed this month (excluding today)
+    let completedWorkingDays = 0
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+    
+    for (let day = 1; day < currentDay; day++) {
+      const date = new Date(currentYear, currentMonth, day)
+      const dayOfWeek = date.getDay()
+      if (dayOfWeek >= 1 && dayOfWeek <= config.daysPerWeek) {
+        completedWorkingDays++
+      }
+    }
+    
+    // Calculate earnings from completed working days this month
+    const completedDaysEarnings = completedWorkingDays * earnings.dailyTarget
+    
+    // Add today's earnings if it's a working day
+    const todayEarnings = calculateDailyEarnings()
+    
+    return completedDaysEarnings + todayEarnings
+  }, [config.daysPerWeek, earnings.dailyTarget, calculateDailyEarnings])
 
   useEffect(() => {
     const targets = calculateTargets(config)
@@ -161,14 +251,18 @@ export default function Page() {
   useEffect(() => {
     const interval = setInterval(() => {
       const dailyEarnings = calculateDailyEarnings()
+      const weeklyEarnings = calculateWeeklyEarnings()
+      const monthlyEarnings = calculateMonthlyEarnings()
       setEarnings(prev => ({
         ...prev,
-        dailyEarnings: dailyEarnings
+        dailyEarnings: dailyEarnings,
+        weeklyEarnings: weeklyEarnings,
+        monthlyEarnings: monthlyEarnings
       }))
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [calculateDailyEarnings])
+  }, [calculateDailyEarnings, calculateWeeklyEarnings, calculateMonthlyEarnings])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -299,18 +393,6 @@ export default function Page() {
 
                         <div className="grid gap-2">
                           <NumberInput
-                            label="Horas por Dia"
-                            value={config.hoursPerDay}
-                            onChange={(value) => setConfig(prev => ({ ...prev, hoursPerDay: value }))}
-                            min={1}
-                            max={24}
-                            step={1}
-                            placeholder="Digite as horas por dia..."
-                          />
-                        </div>
-
-                        <div className="grid gap-2">
-                          <NumberInput
                             label="Dias por Semana"
                             value={config.daysPerWeek}
                             onChange={(value) => setConfig(prev => ({ ...prev, daysPerWeek: value }))}
@@ -398,9 +480,9 @@ export default function Page() {
                 <div className="mb-2">
                   <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
                     <span>Progresso</span>
-                    <span>{Math.round(getProgressPercentage(earnings.dailyEarnings, earnings.weeklyTarget))}%</span>
+                    <span>{Math.round(getProgressPercentage(earnings.weeklyEarnings, earnings.weeklyTarget))}%</span>
                   </div>
-                  <Progress value={getProgressPercentage(earnings.dailyEarnings, earnings.weeklyTarget)}>
+                  <Progress value={getProgressPercentage(earnings.weeklyEarnings, earnings.weeklyTarget)}>
                     <ProgressTrack color="bg-emerald-500" />
                   </Progress>
                 </div>
@@ -418,9 +500,9 @@ export default function Page() {
                 <div className="mb-2">
                   <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
                     <span>Progresso</span>
-                    <span>{Math.round(getProgressPercentage(earnings.dailyEarnings, earnings.monthlyTarget))}%</span>
+                    <span>{Math.round(getProgressPercentage(earnings.monthlyEarnings, earnings.monthlyTarget))}%</span>
                   </div>
-                  <Progress value={getProgressPercentage(earnings.dailyEarnings, earnings.monthlyTarget)}>
+                  <Progress value={getProgressPercentage(earnings.monthlyEarnings, earnings.monthlyTarget)}>
                     <ProgressTrack color="bg-indigo-500" />
                   </Progress>
                 </div>
