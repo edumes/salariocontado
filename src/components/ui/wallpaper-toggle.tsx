@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { ImageIcon } from "lucide-react"
 import { useState } from "react"
 
-const wallpapers = [
+export const wallpapers = [
   {
     name: "Mountain Lake",
     url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&h=1080&fit=crop&crop=center"
@@ -97,7 +97,7 @@ export function WallpaperToggle({ onWallpaperChange }: WallpaperToggleProps) {
       className="fixed top-4 left-4 z-50 bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-105"
     >
       <ImageIcon className="w-4 h-4 mr-2" />
-      Change Wallpaper
+      Trocar Wallpaper
     </Button>
   )
 }

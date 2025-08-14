@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { CardContent, CardHeader, LiquidGlassCard } from "@/components/ui/liquid-glass-card"
 import NumberInput from "@/components/ui/NumberInput"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { WallpaperToggle } from "@/components/ui/wallpaper-toggle"
+import { WallpaperToggle, wallpapers } from "@/components/ui/wallpaper-toggle"
 import { AlertTriangle, Calendar, Clock, DollarSign, Settings, TrendingUp } from 'lucide-react'
 import { useCallback, useEffect, useState } from "react"
 
@@ -33,36 +33,45 @@ interface EarningsData {
 
 const STORAGE_KEY = 'earnings-tracker-config'
 
-const getStoredConfig = (): WorkConfig => {
+const defaultConfig: WorkConfig = {
+  salaryType: 'monthly',
+  salaryAmount: 3150,
+  daysPerWeek: 5,
+  workStartHour: 8,
+  workEndHour: 17
+}
+
+/**
+ * Safe reader for localStorage — returns null if not available or JSON parse fails.
+ */
+const readStoredConfig = (): WorkConfig | null => {
+  if (typeof window === 'undefined' || !window.localStorage) return null
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = window.localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      return JSON.parse(stored)
+      return JSON.parse(stored) as WorkConfig
     }
   } catch (error) {
     console.error('Error loading config from localStorage:', error)
   }
-
-  // Default configuration
-  return {
-    salaryType: 'monthly',
-    salaryAmount: 3150,
-    daysPerWeek: 5,
-    workStartHour: 8,
-    workEndHour: 17
-  }
+  return null
 }
 
+/**
+ * Safe writer for localStorage — no-op on server.
+ */
 const saveConfig = (config: WorkConfig) => {
+  if (typeof window === 'undefined' || !window.localStorage) return
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
   } catch (error) {
     console.error('Error saving config to localStorage:', error)
   }
 }
 
 export default function Page() {
-  const [config, setConfig] = useState<WorkConfig>(getStoredConfig)
+  // Initialize with server-safe default. We'll load stored config on mount.
+  const [config, setConfig] = useState<WorkConfig>(defaultConfig)
   const [earnings, setEarnings] = useState<EarningsData>({
     dailyEarnings: 0,
     dailyTarget: 0,
@@ -73,15 +82,33 @@ export default function Page() {
     monthlyEarnings: 0
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [currentWallpaper, setCurrentWallpaper] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('current-wallpaper')
-    }
-    return null
-  })
+  const [currentWallpaper, setCurrentWallpaper] = useState<string | null>(null)
   const [currentWallpaperName, setCurrentWallpaperName] = useState<string | null>(null)
 
-  // Save config to localStorage whenever it changes
+  // On mount (client-only) load stored config and wallpaper
+  useEffect(() => {
+    const stored = readStoredConfig()
+    if (stored) {
+      setConfig(stored)
+    }
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const storedWallpaper = window.localStorage.getItem('current-wallpaper')
+      if (storedWallpaper) {
+        setCurrentWallpaper(storedWallpaper)
+      } else {
+        const randomWallpaper = wallpapers[Math.floor(Math.random() * wallpapers.length)]
+        setCurrentWallpaper(randomWallpaper.url)
+        window.localStorage.setItem('current-wallpaper', randomWallpaper.url)
+      }
+    } else {
+      // if localStorage isn't available just pick a random wallpaper for client later (won't run on server)
+      const randomWallpaper = wallpapers[Math.floor(Math.random() * wallpapers.length)]
+      setCurrentWallpaper(randomWallpaper.url)
+    }
+  }, [])
+
+  // Save config to localStorage whenever it changes (client-only)
   useEffect(() => {
     saveConfig(config)
   }, [config])
@@ -109,17 +136,15 @@ export default function Page() {
     const actualWorkingHoursPerDay = workConfig.workEndHour - workConfig.workStartHour
     const totalWorkingSecondsPerYear = workingDaysPerYear * actualWorkingHoursPerDay * 3600
 
-    return annualSalary / totalWorkingSecondsPerYear
+    return totalWorkingSecondsPerYear > 0 ? annualSalary / totalWorkingSecondsPerYear : 0
   }, [])
 
   const calculateTargets = useCallback((workConfig: WorkConfig) => {
     const earningsPerSecond = calculateEarningsPerSecond(workConfig)
     
-    // Calculate actual working hours per day based on start and end times
     const actualWorkingHoursPerDay = workConfig.workEndHour - workConfig.workStartHour
     const secondsPerDay = actualWorkingHoursPerDay * 3600
     
-    // Calculate daily target based on annual salary divided by working days per year
     const workingDaysPerYear = 365 * (workConfig.daysPerWeek / 7)
     let annualSalary: number
     
@@ -137,11 +162,9 @@ export default function Page() {
         annualSalary = 0
     }
     
-    const dailyTarget = annualSalary / workingDaysPerYear
+    const dailyTarget = workingDaysPerYear > 0 ? annualSalary / workingDaysPerYear : 0
     const weeklyTarget = dailyTarget * workConfig.daysPerWeek
     
-    // Calculate monthly target based on average working days per month
-    // Average month has ~21.67 working days (assuming 5-day work week)
     const averageWorkingDaysPerMonth = (workConfig.daysPerWeek / 7) * 30.44
     const monthlyTarget = dailyTarget * averageWorkingDaysPerMonth
 
@@ -156,12 +179,9 @@ export default function Page() {
   const isWorkingHours = useCallback(() => {
     const now = new Date()
     const currentHour = now.getHours()
-    const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-
-    // Check if it's a working day (Monday = 1, Tuesday = 2, ..., Friday = 5 for 5-day week)
+    const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, ...
     const isWorkingDay = currentDay >= 1 && currentDay <= config.daysPerWeek
     const isWorkingHour = currentHour >= config.workStartHour && currentHour < config.workEndHour
-
     return isWorkingDay && isWorkingHour
   }, [config.workStartHour, config.workEndHour, config.daysPerWeek])
 
@@ -172,32 +192,26 @@ export default function Page() {
     const currentSecond = now.getSeconds()
     const currentDay = now.getDay()
 
-    // Check if today is a working day
     const isWorkingDay = currentDay >= 1 && currentDay <= config.daysPerWeek
 
     if (!isWorkingDay) {
-      return 0 // No earnings on non-working days
+      return 0
     }
 
-    // Calculate how many seconds have passed since work started today
     let secondsWorkedToday = 0
     const actualWorkingHoursPerDay = config.workEndHour - config.workStartHour
 
     if (isWorkingHours()) {
-      // Currently working - calculate from work start time to now
       const workStartInSeconds = config.workStartHour * 3600
       const currentTimeInSeconds = currentHour * 3600 + currentMinute * 60 + currentSecond
       secondsWorkedToday = Math.max(0, currentTimeInSeconds - workStartInSeconds)
     } else if (currentHour >= config.workEndHour) {
-      // Work day is over - calculate full work day
       secondsWorkedToday = actualWorkingHoursPerDay * 3600
     } else if (currentHour >= config.workStartHour) {
-      // Work day has started but we're in working hours - calculate from start to now
       const workStartInSeconds = config.workStartHour * 3600
       const currentTimeInSeconds = currentHour * 3600 + currentMinute * 60 + currentSecond
       secondsWorkedToday = Math.max(0, currentTimeInSeconds - workStartInSeconds)
     }
-    // If before work hours, secondsWorkedToday remains 0
 
     return secondsWorkedToday * earnings.earningsPerSecond
   }, [config.workStartHour, config.workEndHour, config.daysPerWeek, earnings.earningsPerSecond, isWorkingHours])
@@ -206,16 +220,12 @@ export default function Page() {
     const now = new Date()
     const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     
-    // Calculate how many working days have passed this week (excluding today)
     let completedWorkingDays = 0
     for (let day = 1; day < Math.min(currentDay, config.daysPerWeek + 1); day++) {
       completedWorkingDays++
     }
     
-    // Calculate earnings from completed working days this week
     const completedDaysEarnings = completedWorkingDays * earnings.dailyTarget
-    
-    // Add today's earnings if it's a working day
     const todayEarnings = calculateDailyEarnings()
     
     return completedDaysEarnings + todayEarnings
@@ -227,10 +237,7 @@ export default function Page() {
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
     
-    // Calculate how many working days have passed this month (excluding today)
     let completedWorkingDays = 0
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-    
     for (let day = 1; day < currentDay; day++) {
       const date = new Date(currentYear, currentMonth, day)
       const dayOfWeek = date.getDay()
@@ -239,15 +246,13 @@ export default function Page() {
       }
     }
     
-    // Calculate earnings from completed working days this month
     const completedDaysEarnings = completedWorkingDays * earnings.dailyTarget
-    
-    // Add today's earnings if it's a working day
     const todayEarnings = calculateDailyEarnings()
     
     return completedDaysEarnings + todayEarnings
   }, [config.daysPerWeek, earnings.dailyTarget, calculateDailyEarnings])
 
+  // Recalculate targets when config changes
   useEffect(() => {
     const targets = calculateTargets(config)
     setEarnings(prev => ({
@@ -256,6 +261,7 @@ export default function Page() {
     }))
   }, [config, calculateTargets])
 
+  // Update earnings counters every second (client-only)
   useEffect(() => {
     const interval = setInterval(() => {
       const dailyEarnings = calculateDailyEarnings()
@@ -263,14 +269,21 @@ export default function Page() {
       const monthlyEarnings = calculateMonthlyEarnings()
       setEarnings(prev => ({
         ...prev,
-        dailyEarnings: dailyEarnings,
-        weeklyEarnings: weeklyEarnings,
-        monthlyEarnings: monthlyEarnings
+        dailyEarnings,
+        weeklyEarnings,
+        monthlyEarnings
       }))
     }, 1000)
 
     return () => clearInterval(interval)
   }, [calculateDailyEarnings, calculateWeeklyEarnings, calculateMonthlyEarnings])
+
+  useEffect(() => {
+    if (currentWallpaper) {
+      const wallpaper = wallpapers.find(w => w.url === currentWallpaper)
+      setCurrentWallpaperName(wallpaper ? wallpaper.name : null)
+    }
+  }, [currentWallpaper])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -280,14 +293,19 @@ export default function Page() {
   }
 
   const getProgressPercentage = (current: number, target: number) => {
-    return Math.min((current / target) * 100, 100)
+    return target > 0 ? Math.min((current / target) * 100, 100) : 0
+  }
+
+  const getWallpaperName = (wallpaperUrl: string): string => {
+    const wallpaper = wallpapers.find(w => w.url === wallpaperUrl)
+    return wallpaper ? wallpaper.name : "Unknown"
   }
 
   const handleWallpaperChange = (wallpaperUrl: string, wallpaperName: string) => {
     setCurrentWallpaper(wallpaperUrl)
     setCurrentWallpaperName(wallpaperName)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('current-wallpaper', wallpaperUrl)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('current-wallpaper', wallpaperUrl)
     }
   }
 
@@ -308,17 +326,6 @@ export default function Page() {
 
       <WallpaperToggle onWallpaperChange={handleWallpaperChange} />
       
-      {/* {currentWallpaperName && (
-        <div className="fixed top-4 left-48 ml-2 z-50 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-3 py-1 rounded-md text-sm">
-          {currentWallpaperName}
-        </div>
-      )} */}
-      
-      {/* Fixed Theme Toggle in Top-Right Corner */}
-      {/* <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div> */}
-
       <div className="container mx-auto px-4 py-8 relative z-10">
         {/* Header */}
         <header className="text-center mb-12">
