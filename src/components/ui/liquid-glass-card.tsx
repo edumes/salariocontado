@@ -59,7 +59,6 @@ function ButtonGlassFilter() {
     const filterId = React.useId();
     return (
         <svg className="hidden">
-            <title>Glass Effect Filter</title>
             <defs>
                 <filter
                     id={filterId}
@@ -191,7 +190,6 @@ function GlassFilter() {
 
     return (
         <svg className="hidden">
-            <title>Glass Effect Filter</title>
             <defs>
                 <filter
                     id={filterId}

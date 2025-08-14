@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { CardContent, CardHeader, LiquidGlassCard } from "@/components/ui/liquid-glass-card"
 import NumberInput from "@/components/ui/NumberInput"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { WallpaperToggle } from "@/components/ui/wallpaper-toggle"
 import { AlertTriangle, Calendar, Clock, DollarSign, Settings, TrendingUp } from 'lucide-react'
 import { useCallback, useEffect, useState } from "react"
 
@@ -72,6 +73,13 @@ export default function Page() {
     monthlyEarnings: 0
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [currentWallpaper, setCurrentWallpaper] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('current-wallpaper')
+    }
+    return null
+  })
+  const [currentWallpaperName, setCurrentWallpaperName] = useState<string | null>(null)
 
   // Save config to localStorage whenever it changes
   useEffect(() => {
@@ -275,14 +283,43 @@ export default function Page() {
     return Math.min((current / target) * 100, 100)
   }
 
+  const handleWallpaperChange = (wallpaperUrl: string, wallpaperName: string) => {
+    setCurrentWallpaper(wallpaperUrl)
+    setCurrentWallpaperName(wallpaperName)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('current-wallpaper', wallpaperUrl)
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black dark:from-gray-950 dark:via-gray-900 dark:to-black">
+    <main className="min-h-screen relative overflow-hidden">
+      {currentWallpaper && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-1000 ease-in-out"
+          style={{ backgroundImage: `url(${currentWallpaper})` }}
+        >
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+      )}
+      
+      {!currentWallpaper && (
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black dark:from-gray-950 dark:via-gray-900 dark:to-black"></div>
+      )}
+
+      <WallpaperToggle onWallpaperChange={handleWallpaperChange} />
+      
+      {/* {currentWallpaperName && (
+        <div className="fixed top-4 left-48 ml-2 z-50 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-3 py-1 rounded-md text-sm">
+          {currentWallpaperName}
+        </div>
+      )} */}
+      
       {/* Fixed Theme Toggle in Top-Right Corner */}
       {/* <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div> */}
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 relative z-10">
         {/* Header */}
         <header className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500 rounded-full mb-4">
@@ -309,7 +346,7 @@ export default function Page() {
                 />
 
                 <div className="flex items-center justify-center gap-4 mb-6">
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-200">
                     <Clock className="w-4 h-4 mr-2" />
                     <AnimatedDigits
                       value={formatCurrency(earnings.earningsPerSecond)}
@@ -317,7 +354,7 @@ export default function Page() {
                     />
                     /segundo
                   </div>
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-200">
                     <TrendingUp className="w-4 h-4 mr-2" />
                     <AnimatedDigits
                       value={formatCurrency(earnings.earningsPerSecond * 60)}
@@ -376,11 +413,12 @@ export default function Page() {
 
                         <div className="grid gap-2">
                           <NumberInput
-                            label="Valor do Salário (R$)"
+                            label="Valor do Salário"
                             value={config.salaryAmount}
                             onChange={(value) => setConfig(prev => ({ ...prev, salaryAmount: value }))}
                             min={0}
                             step={0.01}
+                            showControls={false}
                             placeholder="Digite o valor do salário..."
                             formatOptions={{
                               style: 'currency',
@@ -432,7 +470,7 @@ export default function Page() {
                 }
               />
               <CardContent>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-sm text-gray-600 dark:text-gray-200">
                   <div className="flex justify-between mb-2">
                     <span>Horário de Trabalho:</span>
                     <span>{config.workStartHour}h às {config.workEndHour}h</span>
@@ -458,7 +496,7 @@ export default function Page() {
               />
               <CardContent>
                 <div className="mb-2">
-                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-200 mb-1">
                     <span>Progresso</span>
                     <span>{Math.round(getProgressPercentage(earnings.dailyEarnings, earnings.dailyTarget))}%</span>
                   </div>
@@ -478,7 +516,7 @@ export default function Page() {
               />
               <CardContent>
                 <div className="mb-2">
-                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-200 mb-1">
                     <span>Progresso</span>
                     <span>{Math.round(getProgressPercentage(earnings.weeklyEarnings, earnings.weeklyTarget))}%</span>
                   </div>
@@ -498,7 +536,7 @@ export default function Page() {
               />
               <CardContent>
                 <div className="mb-2">
-                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-200 mb-1">
                     <span>Progresso</span>
                     <span>{Math.round(getProgressPercentage(earnings.monthlyEarnings, earnings.monthlyTarget))}%</span>
                   </div>
@@ -512,7 +550,7 @@ export default function Page() {
           </div>
 
           {/* Stats Footer */}
-          <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-200">
             {!isWorkingHours() && (
               <p className="text-orange-600 dark:text-orange-400 font-medium flex items-center justify-center gap-2">
                 <AlertTriangle />

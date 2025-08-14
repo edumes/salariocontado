@@ -47,7 +47,6 @@ function Badge({
 function GlassFilter({ filterId }: { filterId: string }) {
   return (
     <svg className="hidden">
-      <title>Glass Effect Filter</title>
       <defs>
         <filter
           id={filterId}

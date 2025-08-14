@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useState } from "react"
 import { LoaderCircleIcon, MinusIcon, PlusIcon } from "lucide-react"
-
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -42,12 +41,17 @@ export default function NumberInput({
 }: NumberInputProps) {
   const id = useId()
   const [inputValue, setInputValue] = useState(value.toString())
+  const [displayValue, setDisplayValue] = useState("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>("")
+  const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
     setInputValue(value.toString())
-  }, [value])
+    if (!isEditing) {
+      setDisplayValue(formatDisplayValue(value.toString()))
+    }
+  }, [value, isEditing])
 
   useEffect(() => {
     if (inputValue) {
@@ -117,6 +121,69 @@ export default function NumberInput({
     }
   }
 
+  const parseCurrencyValue = (formattedValue: string): string => {
+    if (!formatOptions || formatOptions.style !== 'currency') {
+      return formattedValue.replace(/[^\d.-]/g, '')
+    }
+
+    const locale = 'pt-BR'
+    const currency = formatOptions.currency || 'BRL'
+    
+    const parts = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: formatOptions.minimumFractionDigits || 2,
+      maximumFractionDigits: formatOptions.maximumFractionDigits || 2
+    }).formatToParts(1234.56)
+
+    const decimal = parts.find(part => part.type === 'decimal')?.value || '.'
+    const group = parts.find(part => part.type === 'group')?.value || '.'
+    const currencySymbol = parts.find(part => part.type === 'currency')?.value || 'R$'
+
+    const cleanValue = formattedValue
+      .replace(new RegExp(`\\${currencySymbol}`, 'g'), '')
+      .replace(new RegExp(`\\${group}`, 'g'), '')
+      .replace(new RegExp(`\\${decimal}`, 'g'), '.')
+      .trim()
+
+    if (cleanValue === '' || cleanValue === '-') {
+      return cleanValue
+    }
+
+    const numValue = parseFloat(cleanValue)
+    return isNaN(numValue) ? '' : numValue.toString()
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    
+    if (!formatOptions || formatOptions.style !== 'currency') {
+      const rawValue = value.replace(/[^\d.-]/g, '')
+      validateAndUpdate(rawValue)
+      return
+    }
+
+    const rawValue = parseCurrencyValue(value)
+    setDisplayValue(value)
+    validateAndUpdate(rawValue)
+  }
+
+  const handleInputFocus = () => {
+    setIsEditing(true)
+    setDisplayValue(inputValue)
+  }
+
+  const handleInputBlur = () => {
+    setIsEditing(false)
+    if (inputValue && inputValue !== "-") {
+      const numValue = parseFloat(inputValue)
+      if (!isNaN(numValue)) {
+        setInputValue(numValue.toString())
+        setDisplayValue(formatDisplayValue(numValue.toString()))
+      }
+    }
+  }
+
   return (
     <div className={`*:not-first:mt-2 ${className}`}>
       {label && <Label htmlFor={id}>{label}</Label>}
@@ -126,21 +193,10 @@ export default function NumberInput({
           className={`peer ${showControls ? 'ps-9 pe-9' : ''} ${error ? 'border-red-500 focus:border-red-500' : ''}`}
           placeholder={placeholder}
           type="text"
-          value={formatDisplayValue(inputValue)}
-          onChange={(e) => {
-            // Remove formatting for internal processing
-            const rawValue = e.target.value.replace(/[^\d.-]/g, '')
-            validateAndUpdate(rawValue)
-          }}
-          onBlur={() => {
-            // Format the display value on blur
-            if (inputValue && inputValue !== "-") {
-              const numValue = parseFloat(inputValue)
-              if (!isNaN(numValue)) {
-                setInputValue(numValue.toString())
-              }
-            }
-          }}
+          value={isEditing ? displayValue : formatDisplayValue(inputValue)}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
           disabled={disabled}
           required={required}
         />
