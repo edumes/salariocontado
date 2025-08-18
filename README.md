@@ -7,6 +7,8 @@
 
 Um aplicativo web moderno e elegante para rastrear seus ganhos em tempo real baseado no seu salário e horário de trabalho.
 
+<img width="1466" height="726" alt="image" src="https://github.com/user-attachments/assets/b720901f-2636-4de0-a634-8cee4823a481" />
+
 ## ✨ Características
 
 - **🕒 Rastreamento em Tempo Real**: Veja quanto você está ganhando por segundo, minuto, hora e dia
